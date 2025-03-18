@@ -234,6 +234,7 @@ const styles = StyleSheet.create({
   },
   hiddenView: {
     position: "absolute",
+    opacity: 0,
     left: -1000,
   },
 });
