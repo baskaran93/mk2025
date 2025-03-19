@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState,useRef } from "react";
 import {
   SafeAreaView,
   Text,
@@ -16,7 +16,10 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 import { useForm, Controller } from "react-hook-form";
-
+import QRCode from "react-native-qrcode-svg";
+import ViewShot from "react-native-view-shot";
+import { saveAs } from "file-saver";
+import { toPng } from "html-to-image"; 
 // Importing logo
 const LoginBgimg = require("../../assets/images/NMMKLogo.png");
 
@@ -39,6 +42,18 @@ const Registration = () => {
     },
   });
   const [loading, setLoading] = useState(false);
+  const viewShotRef = useRef(null);
+  const [visitorID, setVisitorID] = useState(null);
+  // Convert base64 to Blob for Web Download
+  const base64ToBlob = (base64) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: "image/png" });
+  };
 
   // Form submission handler
   const onSubmit = async (data) => {
@@ -68,7 +83,15 @@ const Registration = () => {
       }
 
       if (response.ok) {
-        alert("Success", "Registration completed successfully! 🎉");
+        alert("Registration completed successfully! 🎉");
+      console.log(responseData.user_id)
+        // ✅ Set QR data (response.id) and reset form
+        if (responseData.user_id) {
+          setVisitorID(responseData.user_id.toString());
+          setTimeout(() => {
+            downloadTicket(responseData.user_id); // Auto-download after setting QR
+          }, 500); // Add a slight delay to ensure QR is set
+        }
 
         // ✅ Reset the form after successful submission
         reset({
@@ -94,7 +117,28 @@ const Registration = () => {
       setLoading(false);
     }
   };
-
+  const downloadTicket = async (user_id)  => {
+   
+    // Set the visitor ID correctly
+  console.log("test " &user_id)
+    // Wait for state to update before capturing
+    setTimeout(async () => {
+      const node = document.getElementById("ticketCapture");
+      if (node) {
+        try {
+          const dataUrl = await toPng(node);
+          saveAs(dataUrl, `Visitor_Ticket_${user_id}.png`);
+          alert("Ticket downloaded successfully!");
+        } catch (error) {
+          console.error("Error capturing ticket:", error);
+          alert("Failed to download the ticket.");
+        }
+      } else {
+        alert("Error: Unable to locate the ticket preview.");
+      }
+    }, 500);
+  };
+  
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <KeyboardAvoidingView
@@ -256,6 +300,44 @@ const Registration = () => {
                     <Text style={styles.buttonText}>Submit</Text>
                   </TouchableOpacity>
                 )}
+
+<ViewShot
+          ref={viewShotRef}
+          options={{
+            format: "png",
+            quality: 1,
+            result: "base64",
+            width: width * 2,
+            height: height * 2,
+          }}
+          style={styles.hiddenView}
+        >
+          <View
+  id="ticketCapture"
+  style={styles.ticketWrapper}
+>
+  <Image
+    source={require("../../assets/images/ENTRY_TICKET.jpg")}
+    style={styles.ticketImage}
+  />
+  {visitorID ? (
+    <View style={styles.qrContainer}>
+      <QRCode value={visitorID} size={width > 768 ? 150 :150} />
+      <Text
+        style={[
+          styles.additionalText,
+          { fontSize: width > 768 ? 30 : 30 },
+        ]}
+      >
+        {visitorID}
+      </Text>
+    </View>
+  ) : null}
+</View>
+
+          </ViewShot>
+      
+
               </View>
             </View>
           </ScrollView>
@@ -335,6 +417,44 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  
+  ticketWrapper: {
+    position: "relative",
+    alignItems: "center",
+  },
+  ticketImage: {
+    width: 1000, // High-res width for quality
+    height: 700, // High-res height for quality
+    resizeMode: "contain",
+  },
+ 
+  qrContainer: {
+    position: "absolute",
+    left: "47%",
+    bottom: "-.5%",
+    transform: [{ translateX: -45 }], // Adjusted for larger QR code
+  },
+   // qrContainer: {
+  //   position: "absolute",
+  //   left: "50%",
+  //   bottom: "1%",
+  //   width: width > 768 ? 450 : 280,
+  //   height: 500,
+  //   transform: [{ translateX: width > 768 ? -225 : -140 }],
+  // },
+  additionalText: {
+    marginTop: 1, // Space below Visitor ID
+    fontSize: 40, // Slightly smaller than Visitor ID
+    color: "#fff", // Soft gray color
+    textAlign: "center",
+    fontWeight: "500", // Medium weight
+  
+  },
+  hiddenView: {
+    position: "absolute",
+    opacity: 0,
+    left: -1000,
   },
 });
 
